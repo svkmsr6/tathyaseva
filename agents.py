@@ -196,9 +196,19 @@ class ResearchCrew:
             )
 
             editing_task = Task(
-                description="Polish and refine the content. Ensure proper formatting, flow, and maintain accuracy.",
+                description="""
+                Polish and refine the content. Format your response as a JSON object with this exact structure:
+                {
+                    "content": "<the polished content>",
+                    "metadata": {
+                        "readability_score": <number between 0 and 100>,
+                        "word_count": <number>
+                    }
+                }
+                IMPORTANT: Respond ONLY with the JSON object, no additional text.
+                """,
                 agent=editor,
-                expected_output="Final polished content with proper formatting and flow"
+                expected_output="JSON string containing content and metadata"
             )
 
             crew = Crew(
@@ -211,12 +221,29 @@ class ResearchCrew:
             result_str = str(result).strip()
             logger.debug(f"Raw content generation result: {result_str}")
 
+            try:
+                # Try direct JSON parsing first
+                parsed_result = json.loads(result_str)
+            except json.JSONDecodeError:
+                # Look for JSON pattern
+                json_pattern = r'\{[^}]+\}'
+                json_match = re.search(json_pattern, result_str)
+
+                if json_match:
+                    json_str = json_match.group(0)
+                    logger.debug(f"Extracted JSON string: {json_str}")
+                    parsed_result = json.loads(json_str)
+                else:
+                    raise ValueError("No JSON object found in response")
+
             return {
-                "content": result_str,
+                "content": parsed_result.get("content", "Error: No content generated"),
                 "metadata": {
                     "topic": topic,
                     "model_used": self.model_type.value,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
+                    "readability_score": parsed_result.get("metadata", {}).get("readability_score", 0),
+                    "word_count": parsed_result.get("metadata", {}).get("word_count", 0)
                 }
             }
 
