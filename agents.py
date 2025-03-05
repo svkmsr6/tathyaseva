@@ -145,9 +145,7 @@ class ResearchCrew:
                 # Try direct JSON parsing first
                 parsed_result = json.loads(result_str)
             except json.JSONDecodeError:
-                # If direct parsing fails, try to extract JSON from the text
-                import re
-                # Look for JSON-like pattern
+                # Look for JSON pattern
                 json_pattern = r'\{[^}]+\}'
                 json_match = re.search(json_pattern, result_str)
 
