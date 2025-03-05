@@ -111,18 +111,19 @@ class ResearchCrew:
             fact_checker = self.create_fact_checker_agent()
 
             research_task = Task(
-                description=f"Research the following content and provide evidence:\n{content}\nFormat your response as a detailed analysis.",
+                description=f"Research the following content and provide evidence:\n{content}",
                 agent=researcher,
                 expected_output="Detailed research findings with supporting evidence and citations"
             )
 
             fact_check_task = Task(
                 description="""
-                Analyze the research findings and provide a fact check result in the following JSON format:
+                Based on the research findings, analyze the veracity and provide the result in this exact JSON format:
                 {
                     "score": <number between 0 and 100>,
                     "details": "<detailed explanation of findings>"
                 }
+                Make sure to respond ONLY with the JSON object, no additional text.
                 """,
                 agent=fact_checker,
                 expected_output="JSON string containing score and details"
@@ -135,11 +136,22 @@ class ResearchCrew:
             )
 
             result = crew.kickoff()
-            logger.debug(f"Raw fact check result: {result}")
+            logger.debug(f"Raw fact check result: {str(result)}")
 
-            # Extract JSON from the result
-            json_str = result[result.find("{"):result.rfind("}")+1]
-            parsed_result = json.loads(json_str)
+            # Convert CrewOutput to string and attempt to parse JSON
+            result_str = str(result).strip()
+            try:
+                # Try direct JSON parsing first
+                parsed_result = json.loads(result_str)
+            except json.JSONDecodeError:
+                # If direct parsing fails, try to extract JSON from the text
+                start_idx = result_str.find('{')
+                end_idx = result_str.rfind('}')
+                if start_idx != -1 and end_idx != -1:
+                    json_str = result_str[start_idx:end_idx + 1]
+                    parsed_result = json.loads(json_str)
+                else:
+                    raise ValueError("No JSON object found in response")
 
             return {
                 "score": float(parsed_result.get("score", 0)),
@@ -184,10 +196,11 @@ class ResearchCrew:
             )
 
             result = crew.kickoff()
-            logger.debug(f"Raw content generation result: {result}")
+            result_str = str(result).strip()
+            logger.debug(f"Raw content generation result: {result_str}")
 
             return {
-                "content": result,
+                "content": result_str,
                 "metadata": {
                     "topic": topic,
                     "model_used": self.model_type.value,
