@@ -47,7 +47,6 @@ class ResearchCrew:
             fact_check_task = Task(
                 description=f"""
                 Analyze the content's accuracy based on research findings.
-
                 Format your response as a valid JSON object with this exact structure:
                 {{
                     "score": number between 0 and 100,
@@ -72,21 +71,60 @@ class ResearchCrew:
 
             result = crew.kickoff()
             result_str = str(result).strip()
-            logger.debug("Raw fact check result:")
-            logger.debug(result_str)
+
+            # Detailed logging of the raw response
+            logger.debug("=== Raw Fact Check Response ===")
+            logger.debug(f"Response type: {type(result_str)}")
+            logger.debug(f"Response length: {len(result_str)}")
+            logger.debug("First 100 characters:")
+            logger.debug(repr(result_str[:100]))
+            logger.debug("Last 100 characters:")
+            logger.debug(repr(result_str[-100:]))
+            logger.debug("Full response:")
+            logger.debug(repr(result_str))
 
             # Extract JSON using the same approach as content generation
             start_idx = result_str.find('{')
             end_idx = result_str.rfind('}')
 
+            logger.debug(f"JSON start index: {start_idx}")
+            logger.debug(f"JSON end index: {end_idx}")
+
             if start_idx == -1 or end_idx == -1:
+                logger.error("No JSON object found in response")
+                logger.error("Response content:")
+                logger.error(repr(result_str))
                 raise ValueError("No JSON object found in response")
 
+            # Log characters around JSON boundaries
+            logger.debug("Characters before JSON start:")
+            if start_idx > 0:
+                logger.debug(repr(result_str[max(0, start_idx-20):start_idx]))
+            logger.debug("Characters after JSON end:")
+            if end_idx < len(result_str)-1:
+                logger.debug(repr(result_str[end_idx+1:min(len(result_str), end_idx+21)]))
+
             json_str = result_str[start_idx:end_idx + 1]
-            parsed_result = json.loads(json_str)
+            logger.debug("Extracted JSON string:")
+            logger.debug(repr(json_str))
+
+            try:
+                parsed_result = json.loads(json_str)
+                logger.debug("Successfully parsed JSON:")
+                logger.debug(parsed_result)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error: {str(e)}")
+                logger.error(f"Error position: {e.pos}")
+                logger.error(f"Line number: {e.lineno}")
+                logger.error(f"Column number: {e.colno}")
+                logger.error("Problematic JSON string:")
+                logger.error(repr(json_str))
+                raise
 
             # Basic validation
             if "score" not in parsed_result or "details" not in parsed_result:
+                logger.error("Missing required fields in parsed result:")
+                logger.error(parsed_result)
                 raise ValueError("Missing required fields in response")
 
             score = float(parsed_result["score"])
@@ -99,10 +137,7 @@ class ResearchCrew:
 
         except Exception as e:
             logger.error(f"Fact check error: {str(e)}")
-            return {
-                "score": 0,
-                "details": f"Error during fact check: {str(e)}"
-            }
+            return {"score": 0, "details": f"Error during fact check: {str(e)}"}
 
     def generate_content(self, topic: str) -> dict:
         try:
