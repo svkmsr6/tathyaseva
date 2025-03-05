@@ -121,8 +121,9 @@ class ResearchCrew:
                 Based on the research findings, analyze the veracity and provide the result in this exact JSON format:
                 {
                     "score": <number between 0 and 100>,
-                    "details": "<detailed explanation of findings>"
+                    "details": "Veracity Score: <same exact number as score> - <detailed explanation>"
                 }
+                IMPORTANT: The score in the details text MUST MATCH EXACTLY the score value.
                 Make sure to respond ONLY with the JSON object, no additional text.
                 """,
                 agent=fact_checker,
@@ -136,10 +137,9 @@ class ResearchCrew:
             )
 
             result = crew.kickoff()
-            logger.debug(f"Raw fact check result: {str(result)}")
-
-            # Convert CrewOutput to string and attempt to parse JSON
             result_str = str(result).strip()
+            logger.debug(f"Raw fact check result: {result_str}")
+
             try:
                 # Try direct JSON parsing first
                 parsed_result = json.loads(result_str)
@@ -153,9 +153,18 @@ class ResearchCrew:
                 else:
                     raise ValueError("No JSON object found in response")
 
+            # Ensure score consistency
+            score = float(parsed_result.get("score", 0))
+            details = parsed_result.get("details", "Analysis failed")
+
+            # Validate score consistency
+            if not details.startswith(f"Veracity Score: {score}"):
+                # If inconsistent, reformat the details to include the correct score
+                details = f"Veracity Score: {score} - {details.split('-', 1)[1].strip() if '-' in details else details}"
+
             return {
-                "score": float(parsed_result.get("score", 0)),
-                "details": parsed_result.get("details", "Analysis failed")
+                "score": score,
+                "details": details
             }
 
         except json.JSONDecodeError as e:
