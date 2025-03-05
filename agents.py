@@ -26,7 +26,17 @@ class ResearchCrew:
                     raise ValueError("OpenAI API key not found in environment variables")
                 return {
                     "api_key": api_key,
-                    "model": "gpt-4"
+                    "model": "gpt-4o"  # Using GPT-4o for Shallow/Medium depth
+                }
+
+            elif self.model_type == ModelType.DEEPSEEK:
+                api_key = os.environ.get("DEEPSEEK_API_KEY")
+                if not api_key:
+                    raise ValueError("DeepSeek API key not found in environment variables")
+                return {
+                    "api_key": api_key,
+                    "base_url": "https://api.deepseek.com/v1",
+                    "model": "deepseek-research-1"
                 }
 
             elif self.model_type == ModelType.GROK:
@@ -39,16 +49,6 @@ class ResearchCrew:
                     "model": "grok-2-1212"
                 }
 
-            elif self.model_type == ModelType.LLAMA:
-                # Fallback to OpenAI
-                api_key = os.environ.get("OPENAI_API_KEY")
-                if not api_key:
-                    raise ValueError("OpenAI API key not found in environment variables")
-                return {
-                    "api_key": api_key,
-                    "model": "gpt-4"
-                }
-
             else:
                 # Default to OpenAI
                 api_key = os.environ.get("OPENAI_API_KEY")
@@ -56,7 +56,7 @@ class ResearchCrew:
                     raise ValueError("OpenAI API key not found in environment variables")
                 return {
                     "api_key": api_key,
-                    "model": "gpt-4"
+                    "model": "gpt-4o"
                 }
 
         except Exception as e:
@@ -181,7 +181,6 @@ class ResearchCrew:
         try:
             researcher = self.create_researcher_agent()
             writer = self.create_writer_agent()
-            editor = self.create_editor_agent()
 
             research_task = Task(
                 description=f"Research the topic: {topic}\nProvide comprehensive findings including key points and references.",
@@ -190,66 +189,99 @@ class ResearchCrew:
             )
 
             writing_task = Task(
-                description="Write an engaging article based on the research findings. Include proper citations and maintain accuracy.",
-                agent=writer,
-                expected_output="Well-structured article with accurate information and engaging tone"
-            )
-
-            editing_task = Task(
                 description="""
-                Based on the research findings and written content, polish and refine the content while maintaining accuracy.
-                Format your response EXACTLY like this JSON object:
+                Write an engaging article based on the research findings.
+                You must format your response as a valid JSON object with this exact structure:
                 {
-                    "content": "<the polished content>",
+                    "content": "your article content here",
                     "metadata": {
-                        "readability_score": <number between 0 and 100>,
-                        "word_count": <number>
+                        "word_count": number
                     }
                 }
-                IMPORTANT: 
-                1. ONLY output the JSON object, nothing else before or after
-                2. Make sure it's valid JSON - use double quotes, escape special characters
-                3. Do not add any explanation text outside the JSON
+
+                STRICT REQUIREMENTS:
+                1. Only respond with the JSON object exactly as specified
+                2. No text before or after the JSON
+                3. Use double quotes for all strings
+                4. Do not add any explanations or comments
+                5. The response must start with '{' and end with '}'
                 """,
-                agent=editor,
-                expected_output="JSON string containing content and metadata"
+                agent=writer,
+                expected_output="Valid JSON string containing article"
             )
 
             crew = Crew(
-                agents=[researcher, writer, editor],
-                tasks=[research_task, writing_task, editing_task],
+                agents=[researcher, writer],
+                tasks=[research_task, writing_task],
                 verbose=True
             )
 
             result = crew.kickoff()
             result_str = str(result).strip()
-            logger.debug(f"Raw content generation result: {result_str}")
+            logger.debug("Raw content generation result:")
+            logger.debug(result_str)
 
             try:
-                # Try direct JSON parsing first
-                parsed_result = json.loads(result_str)
-            except json.JSONDecodeError:
-                # Look for JSON pattern
-                json_pattern = r'\{[^}]+\}'
-                json_match = re.search(json_pattern, result_str)
+                # Step 1: Clean the string
+                result_str = result_str.strip()
+                logger.debug("After initial cleaning:")
+                logger.debug(result_str)
 
-                if json_match:
-                    json_str = json_match.group(0)
-                    logger.debug(f"Extracted JSON string: {json_str}")
-                    parsed_result = json.loads(json_str)
-                else:
+                # Step 2: Extract JSON object
+                start_idx = result_str.find('{')
+                end_idx = result_str.rfind('}')
+
+                if start_idx == -1 or end_idx == -1:
                     raise ValueError("No JSON object found in response")
 
-            return {
-                "content": parsed_result.get("content", "Error: No content generated"),
-                "metadata": {
-                    "topic": topic,
-                    "model_used": self.model_type.value,
-                    "timestamp": datetime.now().isoformat(),
-                    "readability_score": parsed_result.get("metadata", {}).get("readability_score", 0),
-                    "word_count": parsed_result.get("metadata", {}).get("word_count", 0)
+                json_str = result_str[start_idx:end_idx + 1]
+                logger.debug("Extracted JSON string:")
+                logger.debug(json_str)
+
+                # Step 3: Parse JSON
+                parsed_result = json.loads(json_str)
+                logger.debug("Successfully parsed JSON")
+
+                # Step 4: Validate structure
+                if not isinstance(parsed_result, dict):
+                    raise ValueError("Parsed result is not a dictionary")
+                if "content" not in parsed_result:
+                    raise ValueError("Missing 'content' field in response")
+
+                # Step 5: Prepare response
+                return {
+                    "content": parsed_result["content"],
+                    "metadata": {
+                        "topic": topic,
+                        "model_used": self.model_type.value,
+                        "timestamp": datetime.now().isoformat(),
+                        "word_count": len(parsed_result["content"].split())
+                    }
                 }
-            }
+
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error: {str(e)}")
+                logger.error(f"Problematic string: {result_str}")
+                return {
+                    "content": "Error: Failed to parse content generation response",
+                    "metadata": {
+                        "topic": topic,
+                        "model_used": self.model_type.value,
+                        "timestamp": datetime.now().isoformat(),
+                        "error": f"JSON parsing error: {str(e)}"
+                    }
+                }
+            except Exception as e:
+                logger.error(f"Content generation error: {str(e)}")
+                return {
+                    "content": "Error: Content generation failed",
+                    "metadata": {
+                        "topic": topic,
+                        "model_used": self.model_type.value,
+                        "timestamp": datetime.now().isoformat(),
+                        "error": str(e)
+                    }
+                }
 
         except Exception as e:
             logger.error(f"Content generation error: {e}")
