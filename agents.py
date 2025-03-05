@@ -19,80 +19,86 @@ class ResearchCrew:
                 api_key = os.environ.get("OPENAI_API_KEY")
                 if not api_key:
                     raise ValueError("OpenAI API key not found in environment variables")
-                self.client = OpenAI(api_key=api_key)
+                return {
+                    "api_key": api_key,
+                    "model": "gpt-4"
+                }
 
             elif self.model_type == ModelType.GROK:
                 api_key = os.environ.get("XAI_API_KEY")
                 if not api_key:
                     raise ValueError("X.AI API key not found in environment variables")
-                self.client = OpenAI(
-                    base_url="https://api.x.ai/v1",
-                    api_key=api_key
-                )
+                return {
+                    "api_key": api_key,
+                    "base_url": "https://api.x.ai/v1",
+                    "model": "grok-2-1212"
+                }
 
             elif self.model_type == ModelType.LLAMA:
                 # Fallback to OpenAI
                 api_key = os.environ.get("OPENAI_API_KEY")
                 if not api_key:
                     raise ValueError("OpenAI API key not found in environment variables")
-                self.client = OpenAI(api_key=api_key)
+                return {
+                    "api_key": api_key,
+                    "model": "gpt-4"
+                }
 
             else:
                 # Default to OpenAI
                 api_key = os.environ.get("OPENAI_API_KEY")
                 if not api_key:
                     raise ValueError("OpenAI API key not found in environment variables")
-                self.client = OpenAI(api_key=api_key)
+                return {
+                    "api_key": api_key,
+                    "model": "gpt-4"
+                }
 
         except Exception as e:
             raise RuntimeError(f"Failed to initialize AI client: {str(e)}")
 
     def create_researcher_agent(self) -> Agent:
-        if not self.client:
-            self.initialize_client()
+        client_config = self.initialize_client()
         return Agent(
             role='Researcher',
             goal='Gather comprehensive information on the given topic',
             backstory='Expert researcher with vast knowledge in multiple domains',
             allow_delegation=True,
             verbose=True,
-            llm=self.client
+            **client_config
         )
 
     def create_fact_checker_agent(self) -> Agent:
-        if not self.client:
-            self.initialize_client()
+        client_config = self.initialize_client()
         return Agent(
             role='Fact Checker',
             goal='Verify the accuracy of information and provide a veracity score',
             backstory='Experienced fact checker with attention to detail',
             allow_delegation=True,
             verbose=True,
-            llm=self.client
+            **client_config
         )
 
     def create_writer_agent(self) -> Agent:
-        if not self.client:
-            self.initialize_client()
+        client_config = self.initialize_client()
         return Agent(
             role='Content Writer',
             goal='Create engaging and factual content',
             backstory='Professional writer specializing in accurate content creation',
             allow_delegation=True,
             verbose=True,
-            llm=self.client
+            **client_config
         )
 
     def create_editor_agent(self) -> Agent:
-        if not self.client:
-            self.initialize_client()
+        client_config = self.initialize_client()
         return Agent(
             role='Editor',
             goal='Refine and polish content while maintaining accuracy',
             backstory='Senior editor with years of experience in content optimization',
             allow_delegation=True,
             verbose=True,
-            llm=self.client
+            **client_config
         )
 
     def run_fact_check(self, content: str) -> Dict[str, Any]:
