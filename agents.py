@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 from datetime import datetime
 from crewai import Agent, Task, Crew
 from openai import OpenAI
@@ -145,10 +146,14 @@ class ResearchCrew:
                 parsed_result = json.loads(result_str)
             except json.JSONDecodeError:
                 # If direct parsing fails, try to extract JSON from the text
-                start_idx = result_str.find('{')
-                end_idx = result_str.rfind('}')
-                if start_idx != -1 and end_idx != -1:
-                    json_str = result_str[start_idx:end_idx + 1]
+                import re
+                # Look for JSON-like pattern
+                json_pattern = r'\{[^}]+\}'
+                json_match = re.search(json_pattern, result_str)
+
+                if json_match:
+                    json_str = json_match.group(0)
+                    logger.debug(f"Extracted JSON string: {json_str}")
                     parsed_result = json.loads(json_str)
                 else:
                     raise ValueError("No JSON object found in response")
