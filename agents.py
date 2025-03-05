@@ -197,7 +197,8 @@ class ResearchCrew:
 
             editing_task = Task(
                 description="""
-                Polish and refine the content while maintaining accuracy. Format your response as a JSON object with this exact structure:
+                Based on the research findings and written content, polish and refine the content while maintaining accuracy.
+                Format your response EXACTLY like this JSON object:
                 {
                     "content": "<the polished content>",
                     "metadata": {
@@ -205,7 +206,10 @@ class ResearchCrew:
                         "word_count": <number>
                     }
                 }
-                IMPORTANT: Make sure to respond ONLY with the JSON object, no additional text.
+                IMPORTANT: 
+                1. ONLY output the JSON object, nothing else before or after
+                2. Make sure it's valid JSON - use double quotes, escape special characters
+                3. Do not add any explanation text outside the JSON
                 """,
                 agent=editor,
                 expected_output="JSON string containing content and metadata"
