@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tathya Seva - Content Management System</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="/static/css/custom.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Tathya Seva</a>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title">Fact Checking</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="fact-check-form">
+                            <div class="mb-3">
+                                <label for="content" class="form-label">Content to Verify</label>
+                                <textarea class="form-control" id="content" rows="4" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="research-depth" class="form-label">Research Depth</label>
+                                <select class="form-select" id="research-depth">
+                                    <option value="shallow">Shallow</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="deep">Deep</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Check Facts</button>
+                        </form>
+                        <div id="fact-check-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Content Generation</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="content-gen-form">
+                            <div class="mb-3">
+                                <label for="topic" class="form-label">Topic</label>
+                                <input type="text" class="form-control" id="topic" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="gen-research-depth" class="form-label">Research Depth</label>
+                                <select class="form-select" id="gen-research-depth">
+                                    <option value="shallow">Shallow</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="deep">Deep</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Generate Content</button>
+                        </form>
+                        <div id="content-gen-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

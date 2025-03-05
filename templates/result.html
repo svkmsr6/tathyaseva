@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result - Tathya Seva</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="/static/css/custom.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Tathya Seva</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Analysis Result</h5>
+                        <span class="badge bg-info">{{ result_type }}</span>
+                    </div>
+                    <div class="card-body">
+                        {% if result_type == 'fact-check' %}
+                            <div class="fact-check-results">
+                                <div class="score-container text-center mb-4">
+                                    <div class="display-4 mb-2">{{ score }}%</div>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar {% if score >= 70 %}bg-success{% elif score >= 40 %}bg-warning{% else %}bg-danger{% endif %}"
+                                             role="progressbar"
+                                             style="width: {{ score }}%"
+                                             aria-valuenow="{{ score }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <div class="text-muted mt-2">Veracity Score</div>
+                                </div>
+
+                                <div class="details-section">
+                                    <h6 class="border-bottom pb-2">Original Content</h6>
+                                    <div class="original-content mb-4">
+                                        <pre class="bg-dark p-3 rounded">{{ content }}</pre>
+                                    </div>
+
+                                    <h6 class="border-bottom pb-2">Analysis Details</h6>
+                                    <div class="analysis-details">
+                                        {{ details | safe }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="content-generation-results">
+                                <div class="metadata mb-4">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="metadata-item">
+                                                <small class="text-muted">Topic</small>
+                                                <div class="h6">{{ metadata.topic }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="metadata-item">
+                                                <small class="text-muted">Model Used</small>
+                                                <div class="h6">{{ metadata.model_used }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="metadata-item">
+                                                <small class="text-muted">Generated On</small>
+                                                <div class="h6">{{ metadata.timestamp | datetime }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="generated-content">
+                                    <h6 class="border-bottom pb-2">Generated Content</h6>
+                                    <div class="content-body">
+                                        {{ content | safe }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="/" class="btn btn-secondary">Back to Home</a>
+                            <button class="btn btn-primary" onclick="window.print()">
+                                <i class="fas fa-print me-2"></i>Print Results
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+    <script>
+        // Custom datetime filter implementation
+        function formatDateTime(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+    </script>
+</body>
+</html>

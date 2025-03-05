@@ -1,0 +1,39 @@
+/* Additional custom styles */
+.card {
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: var(--bs-dark);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.form-control, .form-select {
+    background-color: var(--bs-dark);
+    border: 1px solid var(--bs-border-color);
+    color: var(--bs-light);
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--bs-dark);
+    color: var(--bs-light);
+}
+
+#fact-check-result, #content-gen-result {
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.score-display {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+}
