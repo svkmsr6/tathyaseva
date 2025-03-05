@@ -1,16 +1,20 @@
 import os
 import json
+import logging
 from datetime import datetime
 from crewai import Agent, Task, Crew
 from openai import OpenAI
 from typing import Dict, Any
 from ai_router import ModelType
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 class ResearchCrew:
     def __init__(self, model_type: ModelType):
         self.model_type = model_type
         self.client = None
-        self.initialize_client()
 
     def initialize_client(self):
         """Initialize the appropriate AI client based on model type and available API keys."""
@@ -102,73 +106,103 @@ class ResearchCrew:
         )
 
     def run_fact_check(self, content: str) -> Dict[str, Any]:
-        researcher = self.create_researcher_agent()
-        fact_checker = self.create_fact_checker_agent()
-
-        research_task = Task(
-            description=f"Research and gather evidence about: {content}",
-            agent=researcher,
-            expected_output="Detailed research findings with supporting evidence and citations"
-        )
-
-        fact_check_task = Task(
-            description="Verify the information and provide a veracity score (0-100)",
-            agent=fact_checker,
-            expected_output="JSON string containing: {score: float, details: string}"
-        )
-
-        crew = Crew(
-            agents=[researcher, fact_checker],
-            tasks=[research_task, fact_check_task],
-            verbose=True
-        )
-
-        result = crew.kickoff()
-
-        # Parse the result to extract score and details
         try:
-            score = float(result.split("Score: ")[1].split()[0])
-            details = result.split("Details: ")[1]
-            return {"score": score, "details": details}
-        except Exception:
-            return {"score": 0, "details": "Failed to parse result"}
+            researcher = self.create_researcher_agent()
+            fact_checker = self.create_fact_checker_agent()
+
+            research_task = Task(
+                description=f"Research the following content and provide evidence:\n{content}\nFormat your response as a detailed analysis.",
+                agent=researcher,
+                expected_output="Detailed research findings with supporting evidence and citations"
+            )
+
+            fact_check_task = Task(
+                description="""
+                Analyze the research findings and provide a fact check result in the following JSON format:
+                {
+                    "score": <number between 0 and 100>,
+                    "details": "<detailed explanation of findings>"
+                }
+                """,
+                agent=fact_checker,
+                expected_output="JSON string containing score and details"
+            )
+
+            crew = Crew(
+                agents=[researcher, fact_checker],
+                tasks=[research_task, fact_check_task],
+                verbose=True
+            )
+
+            result = crew.kickoff()
+            logger.debug(f"Raw fact check result: {result}")
+
+            # Extract JSON from the result
+            json_str = result[result.find("{"):result.rfind("}")+1]
+            parsed_result = json.loads(json_str)
+
+            return {
+                "score": float(parsed_result.get("score", 0)),
+                "details": parsed_result.get("details", "Analysis failed")
+            }
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error: {e}")
+            return {"score": 0, "details": f"Failed to parse result: {str(e)}"}
+        except Exception as e:
+            logger.error(f"Fact check error: {e}")
+            return {"score": 0, "details": f"Error during fact check: {str(e)}"}
 
     def generate_content(self, topic: str) -> Dict[str, Any]:
-        researcher = self.create_researcher_agent()
-        writer = self.create_writer_agent()
-        editor = self.create_editor_agent()
+        try:
+            researcher = self.create_researcher_agent()
+            writer = self.create_writer_agent()
+            editor = self.create_editor_agent()
 
-        research_task = Task(
-            description=f"Research the topic: {topic}",
-            agent=researcher,
-            expected_output="Comprehensive research findings with key points and references"
-        )
+            research_task = Task(
+                description=f"Research the topic: {topic}\nProvide comprehensive findings including key points and references.",
+                agent=researcher,
+                expected_output="Comprehensive research findings with key points and references"
+            )
 
-        writing_task = Task(
-            description="Write engaging content based on the research",
-            agent=writer,
-            expected_output="Well-structured article with accurate information and engaging tone"
-        )
+            writing_task = Task(
+                description="Write an engaging article based on the research findings. Include proper citations and maintain accuracy.",
+                agent=writer,
+                expected_output="Well-structured article with accurate information and engaging tone"
+            )
 
-        editing_task = Task(
-            description="Polish and refine the content while ensuring accuracy",
-            agent=editor,
-            expected_output="Final polished content with proper formatting and flow"
-        )
+            editing_task = Task(
+                description="Polish and refine the content. Ensure proper formatting, flow, and maintain accuracy.",
+                agent=editor,
+                expected_output="Final polished content with proper formatting and flow"
+            )
 
-        crew = Crew(
-            agents=[researcher, writer, editor],
-            tasks=[research_task, writing_task, editing_task],
-            verbose=True
-        )
+            crew = Crew(
+                agents=[researcher, writer, editor],
+                tasks=[research_task, writing_task, editing_task],
+                verbose=True
+            )
 
-        result = crew.kickoff()
+            result = crew.kickoff()
+            logger.debug(f"Raw content generation result: {result}")
 
-        return {
-            "content": result,
-            "metadata": {
-                "topic": topic,
-                "model_used": self.model_type.value,
-                "timestamp": datetime.now().isoformat()
+            return {
+                "content": result,
+                "metadata": {
+                    "topic": topic,
+                    "model_used": self.model_type.value,
+                    "timestamp": datetime.now().isoformat()
+                }
             }
-        }
+
+        except Exception as e:
+            logger.error(f"Content generation error: {e}")
+            return {
+                "content": f"Error generating content: {str(e)}",
+                "metadata": {
+                    "topic": topic,
+                    "model_used": self.model_type.value,
+                    "timestamp": datetime.now().isoformat(),
+                    "error": str(e)
+                }
+            }
