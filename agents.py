@@ -101,12 +101,14 @@ class ResearchCrew:
 
         research_task = Task(
             description=f"Research and gather evidence about: {content}",
-            agent=researcher
+            agent=researcher,
+            expected_output="Detailed research findings with supporting evidence and citations"
         )
 
         fact_check_task = Task(
             description="Verify the information and provide a veracity score (0-100)",
-            agent=fact_checker
+            agent=fact_checker,
+            expected_output="JSON string containing: {score: float, details: string}"
         )
 
         crew = Crew(
@@ -132,17 +134,20 @@ class ResearchCrew:
 
         research_task = Task(
             description=f"Research the topic: {topic}",
-            agent=researcher
+            agent=researcher,
+            expected_output="Comprehensive research findings with key points and references"
         )
 
         writing_task = Task(
             description="Write engaging content based on the research",
-            agent=writer
+            agent=writer,
+            expected_output="Well-structured article with accurate information and engaging tone"
         )
 
         editing_task = Task(
             description="Polish and refine the content while ensuring accuracy",
-            agent=editor
+            agent=editor,
+            expected_output="Final polished content with proper formatting and flow"
         )
 
         crew = Crew(
