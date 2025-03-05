@@ -1,7 +1,6 @@
 import os
 import logging
 from flask import Flask, request, jsonify, render_template
-from ai_router import AIRouter
 from agents import ResearchCrew
 
 # Configure logging
@@ -11,8 +10,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
 
-# Initialize AI Router
-ai_router = AIRouter()
+# Initialize Research Crew
+crew = ResearchCrew()
 
 @app.route('/')
 def index():
@@ -26,17 +25,10 @@ def fact_check():
             return jsonify({'error': 'No content provided'}), 400
 
         content = data['content']
-        research_depth = data.get('research_depth', 'medium')
 
-        # Get appropriate model from router
-        model_type = ai_router.get_model(research_depth)
-        
-        # Initialize crew with selected model
-        crew = ResearchCrew(model_type)
-        
         # Run fact checking process
         result = crew.run_fact_check(content)
-        
+
         return jsonify({
             'veracity_score': result['score'],
             'details': result['details']
@@ -54,17 +46,10 @@ def generate_content():
             return jsonify({'error': 'No topic provided'}), 400
 
         topic = data['topic']
-        research_depth = data.get('research_depth', 'medium')
-        
-        # Get appropriate model from router
-        model_type = ai_router.get_model(research_depth)
-        
-        # Initialize crew with selected model
-        crew = ResearchCrew(model_type)
-        
+
         # Generate content
         result = crew.generate_content(topic)
-        
+
         return jsonify({
             'content': result['content'],
             'metadata': result['metadata']

@@ -6,12 +6,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     factCheckForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         factCheckResult.innerHTML = '<div class="loading">Processing...</div>';
-        
+
         const content = document.getElementById('content').value;
-        const researchDepth = document.getElementById('research-depth').value;
-        
+
         try {
             const response = await fetch('/api/fact-check', {
                 method: 'POST',
@@ -19,13 +18,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    content: content,
-                    research_depth: researchDepth
+                    content: content
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (response.ok) {
                 factCheckResult.innerHTML = `
                     <div class="alert alert-info">
@@ -52,12 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     contentGenForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         contentGenResult.innerHTML = '<div class="loading">Generating content...</div>';
-        
+
         const topic = document.getElementById('topic').value;
-        const researchDepth = document.getElementById('gen-research-depth').value;
-        
+
         try {
             const response = await fetch('/api/generate-content', {
                 method: 'POST',
@@ -65,13 +62,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    topic: topic,
-                    research_depth: researchDepth
+                    topic: topic
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (response.ok) {
                 contentGenResult.innerHTML = `
                     <div class="alert alert-success">
@@ -81,8 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="metadata mt-3">
                             <small>
-                                Generated using ${data.metadata.model_used} model
-                                at ${new Date(data.metadata.timestamp).toLocaleString()}
+                                Generated at ${new Date(data.metadata.timestamp).toLocaleString()}
                             </small>
                         </div>
                     </div>
