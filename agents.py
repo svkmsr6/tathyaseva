@@ -1,23 +1,55 @@
 import os
 import json
+from datetime import datetime
 from crewai import Agent, Task, Crew
 from openai import OpenAI
 from typing import Dict, Any
+from ai_router import ModelType
 
 class ResearchCrew:
-    def __init__(self, model_type):
+    def __init__(self, model_type: ModelType):
         self.model_type = model_type
-        # Initialize appropriate client based on model type
-        if model_type == "openai":
-            self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        elif model_type == "grok":
-            self.client = OpenAI(
-                base_url="https://api.x.ai/v1",
-                api_key=os.environ.get("XAI_API_KEY")
-            )
-        # Note: Add other model initializations as needed
+        self.client = None
+        self.initialize_client()
+
+    def initialize_client(self):
+        """Initialize the appropriate AI client based on model type and available API keys."""
+        try:
+            if self.model_type == ModelType.OPENAI:
+                api_key = os.environ.get("OPENAI_API_KEY")
+                if not api_key:
+                    raise ValueError("OpenAI API key not found in environment variables")
+                self.client = OpenAI(api_key=api_key)
+
+            elif self.model_type == ModelType.GROK:
+                api_key = os.environ.get("XAI_API_KEY")
+                if not api_key:
+                    raise ValueError("X.AI API key not found in environment variables")
+                self.client = OpenAI(
+                    base_url="https://api.x.ai/v1",
+                    api_key=api_key
+                )
+
+            elif self.model_type == ModelType.LLAMA:
+                # Fallback to OpenAI
+                api_key = os.environ.get("OPENAI_API_KEY")
+                if not api_key:
+                    raise ValueError("OpenAI API key not found in environment variables")
+                self.client = OpenAI(api_key=api_key)
+
+            else:
+                # Default to OpenAI
+                api_key = os.environ.get("OPENAI_API_KEY")
+                if not api_key:
+                    raise ValueError("OpenAI API key not found in environment variables")
+                self.client = OpenAI(api_key=api_key)
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize AI client: {str(e)}")
 
     def create_researcher_agent(self) -> Agent:
+        if not self.client:
+            self.initialize_client()
         return Agent(
             role='Researcher',
             goal='Gather comprehensive information on the given topic',
@@ -28,6 +60,8 @@ class ResearchCrew:
         )
 
     def create_fact_checker_agent(self) -> Agent:
+        if not self.client:
+            self.initialize_client()
         return Agent(
             role='Fact Checker',
             goal='Verify the accuracy of information and provide a veracity score',
@@ -38,6 +72,8 @@ class ResearchCrew:
         )
 
     def create_writer_agent(self) -> Agent:
+        if not self.client:
+            self.initialize_client()
         return Agent(
             role='Content Writer',
             goal='Create engaging and factual content',
@@ -48,6 +84,8 @@ class ResearchCrew:
         )
 
     def create_editor_agent(self) -> Agent:
+        if not self.client:
+            self.initialize_client()
         return Agent(
             role='Editor',
             goal='Refine and polish content while maintaining accuracy',
@@ -78,7 +116,7 @@ class ResearchCrew:
         )
 
         result = crew.kickoff()
-        
+
         # Parse the result to extract score and details
         try:
             score = float(result.split("Score: ")[1].split()[0])
@@ -114,12 +152,12 @@ class ResearchCrew:
         )
 
         result = crew.kickoff()
-        
+
         return {
             "content": result,
             "metadata": {
                 "topic": topic,
-                "model_used": self.model_type,
+                "model_used": self.model_type.value,
                 "timestamp": datetime.now().isoformat()
             }
         }
