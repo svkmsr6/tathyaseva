@@ -8,14 +8,11 @@ from crewai import Agent, Task, Crew
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-
 class ResearchCrew:
-
     def __init__(self):
         self.api_key = os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError(
-                "OpenAI API key not found in environment variables")
+            raise ValueError("OpenAI API key not found in environment variables")
 
     def create_agent(self, role, goal, backstory):
         return Agent(
@@ -42,18 +39,19 @@ class ResearchCrew:
             )
 
             research_task = Task(
-                description=f"Research the following content and provide evidence:\n{content}",
+                description=f"Research this content carefully:\n{content}",
                 agent=researcher,
-                expected_output="Detailed research findings with supporting evidence"
+                expected_output="Detailed research findings"
             )
 
             fact_check_task = Task(
                 description=f"""
-                Based on the research findings, analyze the content's veracity.
-                Format your response EXACTLY like this JSON object:
+                Analyze the content's accuracy based on research findings.
+
+                Format your response as a valid JSON object with this exact structure:
                 {{
-                    "score": number_between_0_and_100,
-                    "details": "Veracity Score: number_between_0_and_100 - detailed explanation"
+                    "score": number between 0 and 100,
+                    "details": "detailed explanation of the findings"
                 }}
 
                 STRICT REQUIREMENTS:
@@ -61,8 +59,6 @@ class ResearchCrew:
                 2. No text before or after the JSON
                 3. Use double quotes for strings
                 4. Properly escape special characters
-                5. The score in "details" MUST MATCH the score value
-                6. "details" must start with "Veracity Score: X" where X matches the score value
                 """,
                 agent=fact_checker,
                 expected_output="Valid JSON string containing score and details"
@@ -79,7 +75,7 @@ class ResearchCrew:
             logger.debug("Raw fact check result:")
             logger.debug(result_str)
 
-            # Extract and parse JSON
+            # Extract JSON using the same approach as content generation
             start_idx = result_str.find('{')
             end_idx = result_str.rfind('}')
 
@@ -89,24 +85,16 @@ class ResearchCrew:
             json_str = result_str[start_idx:end_idx + 1]
             parsed_result = json.loads(json_str)
 
-            if "score" not in parsed_result:
-                raise ValueError("Missing 'score' field in response")
-            if "details" not in parsed_result:
-                raise ValueError("Missing 'details' field in response")
+            # Basic validation
+            if "score" not in parsed_result or "details" not in parsed_result:
+                raise ValueError("Missing required fields in response")
 
             score = float(parsed_result["score"])
-            details = parsed_result["details"]
-
-            # Ensure score is within valid range
-            score = max(0, min(100, score))
-
-            # Ensure details format is correct
-            if not details.startswith(f"Veracity Score: {score}"):
-                details = f"Veracity Score: {score} - {details.split('-', 1)[1].strip() if '-' in details else details}"
+            score = max(0, min(100, score))  # Ensure score is between 0 and 100
 
             return {
                 "score": score,
-                "details": details
+                "details": f"Veracity Score: {score} - {parsed_result['details']}"
             }
 
         except Exception as e:
@@ -140,9 +128,14 @@ class ResearchCrew:
                 4. Properly escape special characters
                 """,
                 agent=writer,
-                expected_output="Valid JSON string containing article")
+                expected_output="Valid JSON string containing article"
+            )
 
-            crew = Crew(agents=[writer], tasks=[writing_task], verbose=True)
+            crew = Crew(
+                agents=[writer],
+                tasks=[writing_task],
+                verbose=True
+            )
 
             result = crew.kickoff()
             result_str = str(result).strip()
