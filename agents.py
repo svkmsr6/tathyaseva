@@ -26,27 +26,22 @@ class ResearchCrew:
         )
 
     def run_fact_check(self, content: str) -> dict:
+        """Run the fact checking process using a single agent approach."""
         try:
-            researcher = self.create_agent(
-                role='Researcher',
-                goal='Gather comprehensive information on the given topic',
-                backstory='Expert researcher with vast knowledge in multiple domains'
-            )
+            # Create a single fact-checking agent for simplicity
             fact_checker = self.create_agent(
                 role='Fact Checker',
-                goal='Verify the accuracy of information and provide a veracity score',
-                backstory='Experienced fact checker with attention to detail'
+                goal='Verify the accuracy of information and provide a detailed assessment',
+                backstory='Expert fact checker with extensive experience in information verification'
             )
 
-            research_task = Task(
-                description=f"Research this content carefully:\n{content}",
-                agent=researcher,
-                expected_output="Detailed research findings"
-            )
-
+            # Create a single task for fact checking
             fact_check_task = Task(
                 description=f"""
-                Analyze the content's accuracy based on research findings.
+                Carefully fact-check the following content:
+
+                {content}
+
                 Format your response as a valid JSON object with this exact structure:
                 {{
                     "score": number between 0 and 100,
@@ -63,27 +58,25 @@ class ResearchCrew:
                 expected_output="Valid JSON string containing score and details"
             )
 
+            # Set up the crew with just one agent
             crew = Crew(
-                agents=[researcher, fact_checker],
-                tasks=[research_task, fact_check_task],
+                agents=[fact_checker],
+                tasks=[fact_check_task],
                 verbose=True
             )
 
+            # Execute the task
             result = crew.kickoff()
             result_str = str(result).strip()
 
-            # Detailed logging of the raw response
+            # Super detailed logging
             logger.debug("=== Raw Fact Check Response ===")
             logger.debug(f"Response type: {type(result_str)}")
             logger.debug(f"Response length: {len(result_str)}")
-            logger.debug("First 100 characters:")
-            logger.debug(repr(result_str[:100]))
-            logger.debug("Last 100 characters:")
-            logger.debug(repr(result_str[-100:]))
-            logger.debug("Full response:")
-            logger.debug(repr(result_str))
+            logger.debug(f"First 100 characters: {repr(result_str[:100])}")
+            logger.debug(f"Last 100 characters: {repr(result_str[-100:])}")
 
-            # Extract JSON using the same approach as content generation
+            # Simple JSON extraction - exactly like content generation
             start_idx = result_str.find('{')
             end_idx = result_str.rfind('}')
 
@@ -92,48 +85,35 @@ class ResearchCrew:
 
             if start_idx == -1 or end_idx == -1:
                 logger.error("No JSON object found in response")
-                logger.error("Response content:")
-                logger.error(repr(result_str))
-                raise ValueError("No JSON object found in response")
+                logger.error(f"Raw response: {repr(result_str)}")
+                return {"score": 0, "details": "Error: Could not extract JSON from response"}
 
-            # Log characters around JSON boundaries
-            logger.debug("Characters before JSON start:")
-            if start_idx > 0:
-                logger.debug(repr(result_str[max(0, start_idx-20):start_idx]))
-            logger.debug("Characters after JSON end:")
-            if end_idx < len(result_str)-1:
-                logger.debug(repr(result_str[end_idx+1:min(len(result_str), end_idx+21)]))
-
+            # Extract the JSON string
             json_str = result_str[start_idx:end_idx + 1]
-            logger.debug("Extracted JSON string:")
-            logger.debug(repr(json_str))
+            logger.debug(f"Extracted JSON string: {repr(json_str)}")
 
             try:
+                # Parse the JSON
                 parsed_result = json.loads(json_str)
-                logger.debug("Successfully parsed JSON:")
-                logger.debug(parsed_result)
+                logger.debug(f"Successfully parsed JSON: {parsed_result}")
+
+                # Validate and format the result
+                if "score" not in parsed_result or "details" not in parsed_result:
+                    raise ValueError("Missing required fields in response")
+
+                score = float(parsed_result["score"])
+                score = max(0, min(100, score))  # Ensure score is between 0 and 100
+
+                return {
+                    "score": score,
+                    "details": f"Veracity Score: {score} - {parsed_result['details']}"
+                }
+
             except json.JSONDecodeError as e:
                 logger.error(f"JSON parsing error: {str(e)}")
-                logger.error(f"Error position: {e.pos}")
-                logger.error(f"Line number: {e.lineno}")
-                logger.error(f"Column number: {e.colno}")
-                logger.error("Problematic JSON string:")
-                logger.error(repr(json_str))
-                raise
-
-            # Basic validation
-            if "score" not in parsed_result or "details" not in parsed_result:
-                logger.error("Missing required fields in parsed result:")
-                logger.error(parsed_result)
-                raise ValueError("Missing required fields in response")
-
-            score = float(parsed_result["score"])
-            score = max(0, min(100, score))  # Ensure score is between 0 and 100
-
-            return {
-                "score": score,
-                "details": f"Veracity Score: {score} - {parsed_result['details']}"
-            }
+                logger.error(f"Position: {e.pos}, Line: {e.lineno}, Column: {e.colno}")
+                logger.error(f"Problematic JSON: {repr(json_str)}")
+                return {"score": 0, "details": f"Error: JSON parsing failed - {str(e)}"}
 
         except Exception as e:
             logger.error(f"Fact check error: {str(e)}")
