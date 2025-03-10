@@ -33,7 +33,24 @@
     margin: 20px 0;
 }
 
-.loading {
-    text-align: center;
-    padding: 20px;
+/* Loading indicator styles */
+.loading-status {
+    background: var(--bs-dark);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.progress {
+    height: 8px !important;
+    background-color: var(--bs-dark);
+    margin-bottom: 10px;
+}
+
+.progress-bar {
+    background-color: var(--bs-primary);
+}
+
+.d-none {
+    display: none !important;
 }
