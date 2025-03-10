@@ -6,6 +6,7 @@ A Flask-based AI content verification and generation platform using CrewAI for i
 
 - 🔍 **Content Verification**: Fact-check any content with detailed veracity scoring
 - ✍️ **Content Generation**: Generate well-researched content on any topic
+- 📝 **Factual Content Generation**: Create verified content with Markdown support and HTML rendering
 - 🤖 **AI-Powered**: Utilizes OpenAI's latest GPT-4o model for accurate results
 - 🎯 **Intelligent Agents**: CrewAI for orchestrating specialized AI agents
 - 🌐 **Web Interface**: Clean, responsive UI for easy interaction
@@ -38,7 +39,9 @@ All required packages are automatically installed in the Replit environment:
 - crewai
 - openai
 - python-dotenv
+- markdown
 - gunicorn
+- flask-sqlalchemy
 
 ### Running the Application
 
@@ -87,6 +90,36 @@ The application will be available at the provided Replit URL.
         "topic": "Original topic",
         "timestamp": "2024-03-05T17:40:41",
         "word_count": 500
+    }
+}
+```
+
+### Factual Content Generation API
+
+**Endpoint**: `/api/generate-factual-content`
+**Method**: POST
+**Request Body**:
+```json
+{
+    "topic": "Topic for factual content"
+}
+```
+**Response**:
+```json
+{
+    "status": "COMPLETE",
+    "content": "HTML formatted content...",
+    "content_markdown": "Original markdown content...",
+    "structure": "HTML formatted structure...",
+    "word_count": 500,
+    "verification": {
+        "score": 95,
+        "improvements": "Suggested improvements...",
+        "citations": ["Source 1", "Source 2"]
+    },
+    "metadata": {
+        "topic": "Original topic",
+        "timestamp": "2024-03-05T17:40:41"
     }
 }
 ```
