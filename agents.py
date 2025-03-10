@@ -40,7 +40,10 @@ class ResearchCrew:
             logger.debug(f"First 100 characters: {repr(text[:100])}")
             logger.debug(f"Last 100 characters: {repr(text[-100:])}")
 
-            # Find JSON boundaries
+            # Cleanup text
+            text = text.strip()
+
+            # Find JSON boundaries with better handling
             start_idx = text.find('{')
             end_idx = text.rfind('}')
 
@@ -52,9 +55,15 @@ class ResearchCrew:
                 logger.error(f"Raw response: {repr(text)}")
                 return None
 
-            # Extract the JSON string
+            # Extract the JSON string and clean it up
             json_str = text[start_idx:end_idx + 1]
-            logger.debug(f"Extracted JSON string: {repr(json_str)}")
+
+            # Handle common formatting issues
+            json_str = json_str.replace('\n', ' ')  # Replace newlines with spaces
+            json_str = json_str.replace('\\n', '\\\\n')  # Escape \n properly
+            json_str = json_str.replace('\"', '"')  # Fix quote escaping
+
+            logger.debug(f"Cleaned JSON string: {repr(json_str)}")
 
             try:
                 parsed_result = json.loads(json_str)
@@ -106,52 +115,65 @@ class ResearchCrew:
                 }}
 
                 IMPORTANT JSON RULES:
-                1. Response must be ONLY the JSON object
+                1. Response must be ONLY the JSON object, no additional text
                 2. No text before or after the JSON
                 3. Use double quotes for strings
                 4. Properly escape special characters
+                5. Don't include any line breaks in content, use '\\n' instead
                 """,
                 agent=writer,
                 expected_output="Valid JSON string containing structured article"
             )
 
-            # Fact checking task
+            # Execute initial content generation
+            crew = Crew(
+                agents=[writer],
+                tasks=[writing_task],
+                verbose=True
+            )
+            result = crew.kickoff()
+            logger.debug(f"Raw content generation result: {result}")
+
+            # Extract and validate content JSON
+            content_json = self._extract_json(str(writing_task.output))
+            if not content_json:
+                raise ValueError("Failed to parse content generation output")
+
+            # Create fact checking task with the generated content
             fact_check_task = Task(
-                description="""
-                Verify the accuracy of the generated content.
+                description=f"""
+                Verify the accuracy of this content:
+
+                {content_json.get('content', '')}
+
                 Format your response as a valid JSON object with this exact structure:
-                {
+                {{
                     "score": number between 0 and 100,
                     "improvements": "suggested improvements if any",
                     "citations": ["list of verified sources"]
-                }
+                }}
 
                 IMPORTANT JSON RULES:
-                1. Response must be ONLY the JSON object
+                1. Response must be ONLY the JSON object, no additional text
                 2. No text before or after the JSON
                 3. Use double quotes for strings
                 4. Properly escape special characters
+                5. Don't include any line breaks in improvements, use '\\n' instead
                 """,
                 agent=fact_checker,
                 expected_output="Valid JSON string with verification results"
             )
 
-            # Execute tasks sequentially
+            # Execute fact checking
             crew = Crew(
-                agents=[writer, fact_checker],
-                tasks=[writing_task, fact_check_task],
+                agents=[fact_checker],
+                tasks=[fact_check_task],
                 verbose=True
             )
-
-            # Process results
             result = crew.kickoff()
-            logger.debug(f"Raw factual content generation result: {result}")
+            logger.debug(f"Raw fact checking result: {result}")
 
-            # Extract JSON from each task result
-            content_json = self._extract_json(str(writing_task.output))
-            if not content_json:
-                raise ValueError("Failed to parse content generation output")
-
+            # Extract and validate verification JSON
             verification_json = self._extract_json(str(fact_check_task.output))
             if not verification_json:
                 raise ValueError("Failed to parse verification output")
