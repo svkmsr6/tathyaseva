@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import time
+import markdown
 from datetime import datetime
 from enum import Enum
 from crewai import Agent, Task, Crew
@@ -20,6 +21,15 @@ class ResearchCrew:
         self.api_key = os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OpenAI API key not found in environment variables")
+        self.md = markdown.Markdown(extensions=['extra'])
+
+    def _convert_to_html(self, content):
+        """Convert markdown content to HTML with proper escaping."""
+        try:
+            return self.md.convert(content)
+        except Exception as e:
+            logger.error(f"Markdown conversion error: {str(e)}")
+            return content
 
     def create_agent(self, role, goal, backstory):
         """Create an agent with proper JSON response format configuration."""
@@ -95,9 +105,15 @@ class ResearchCrew:
                 description=f"""
                 Write a professional article about: {topic}
 
+                Write the content in Markdown format with:
+                - Headers (# for main title, ## for sections)
+                - Lists (- or 1. for items)
+                - Bold (**) and italic (*) text
+                - Links when relevant
+
                 YOUR RESPONSE MUST BE A VALID JSON OBJECT:
                 {{
-                    "content": "your article content here",
+                    "content": "your markdown-formatted article here",
                     "structure": "outline of sections",
                     "word_count": number
                 }}
@@ -169,11 +185,16 @@ class ResearchCrew:
             if not verification_json:
                 raise ValueError("Failed to generate valid verification")
 
+            # Convert markdown content to HTML
+            html_content = self._convert_to_html(content_json["content"])
+            html_structure = self._convert_to_html(content_json.get("structure", ""))
+
             # Return combined results
             return {
                 "status": TaskStatus.COMPLETE.value,
-                "content": content_json["content"],
-                "structure": content_json.get("structure", ""),
+                "content": html_content,
+                "content_markdown": content_json["content"],  # Keep original markdown
+                "structure": html_structure,
                 "word_count": content_json.get("word_count", 0),
                 "verification": {
                     "score": verification_json.get("score", 0),

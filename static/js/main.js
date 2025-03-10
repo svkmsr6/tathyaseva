@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="alert alert-success">
                             <div class="mb-3">
                                 <h6>Generated Content (${data.word_count} words):</h6>
-                                <div class="generated-content">
+                                <div class="generated-content article-content">
                                     ${data.content}
                                 </div>
                             </div>
@@ -159,6 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <small>
                                     Generated at ${new Date(data.metadata.timestamp).toLocaleString()}
                                 </small>
+                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="navigator.clipboard.writeText(${JSON.stringify(data.content_markdown)})">
+                                    Copy Markdown
+                                </button>
                             </div>
                         </div>
                     `;

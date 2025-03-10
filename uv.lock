@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -2590,6 +2591,7 @@ dependencies = [
     { name = "flask" },
     { name = "flask-sqlalchemy" },
     { name = "gunicorn" },
+    { name = "markdown" },
     { name = "openai" },
     { name = "psycopg2-binary" },
 ]
@@ -2602,6 +2604,7 @@ requires-dist = [
     { name = "flask", specifier = ">=3.1.0" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
+    { name = "markdown", specifier = ">=3.7" },
     { name = "openai", specifier = ">=1.65.3" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
 ]
