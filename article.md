@@ -59,12 +59,14 @@ At the heart of Tathya Seva is the **CrewAI** framework, which enables the creat
 ```python
 # agents.py - Agent orchestration
 from crewai import Agent, Task, Crew
+import markdown
 
 class ResearchCrew:
     def __init__(self):
         self.api_key = os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OpenAI API key not found in environment variables")
+        self.md = markdown.Markdown()
 
     def create_agent(self, role, goal, backstory):
         return Agent(
@@ -76,6 +78,70 @@ class ResearchCrew:
             api_key=self.api_key,
             model="gpt-4o"  # Using GPT-4o for all tasks
         )
+
+    def _convert_to_html(self, content):
+        """Convert markdown content to HTML with proper escaping."""
+        try:
+            return self.md.convert(content)
+        except Exception as e:
+            logger.error(f"Markdown conversion error: {str(e)}")
+            return content
+
+
+```
+
+### Content Generation API
+
+**Endpoint**: `/api/generate-content`
+**Method**: POST
+**Request Body**:
+```json
+{
+    "topic": "Topic for content generation"
+}
+```
+**Response**:
+```json
+{
+    "content": "Generated content...",
+    "metadata": {
+        "topic": "Original topic",
+        "timestamp": "2024-03-05T17:40:41",
+        "word_count": 500
+    }
+}
+```
+
+### Factual Content Generation API
+
+The Factual Content Generation endpoint combines content creation with automatic verification and Markdown formatting support:
+
+**Endpoint**: `/api/generate-factual-content`
+**Method**: POST
+**Request Body**:
+```json
+{
+    "topic": "Topic for factual content"
+}
+```
+**Response**:
+```json
+{
+    "status": "COMPLETE",
+    "content": "HTML formatted content...",
+    "content_markdown": "Original markdown content...",
+    "structure": "HTML formatted structure...",
+    "word_count": 500,
+    "verification": {
+        "score": 95,
+        "improvements": "Suggested improvements...",
+        "citations": ["Source 1", "Source 2"]
+    },
+    "metadata": {
+        "topic": "Original topic",
+        "timestamp": "2024-03-05T17:40:41"
+    }
+}
 ```
 
 ### Fact Checking Process
@@ -222,6 +288,11 @@ The application features a clean, responsive UI built with Bootstrap and custom 
 </html>
 ```
 
+## Handling Markdown Content
+
+The application now includes robust Markdown processing capabilities using the `markdown` library. This enables rich text formatting in generated content, structured document hierarchies, clean HTML output for web display, and preservation of the original Markdown for editing.  The content generation process now includes: 1) Generation of Markdown-formatted content, 2) Conversion to clean HTML for display, 3) Retention of original Markdown for user reference, and 4) Proper handling of special characters and escaping.
+
+
 ## Running and Deploying Tathya Seva Playground
 
 ### Local Setup
@@ -231,6 +302,7 @@ To run Tathya Seva Playground locally, you'll need:
 1. Python 3.11 or higher
 2. An OpenAI API key with GPT-4o access
 3. The necessary Python packages (listed in dependencies.txt)
+4. Install the `markdown` library: `pip install markdown`
 
 Set up your environment variables:
 ```bash
