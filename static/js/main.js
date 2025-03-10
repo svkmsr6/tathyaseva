@@ -93,4 +93,85 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }
     });
+
+    const factualContentForm = document.getElementById('factual-content-form');
+    const factualContentStatus = document.getElementById('factual-content-status');
+    const factualContentResult = document.getElementById('factual-content-result');
+
+    factualContentForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const topic = document.getElementById('factual-topic').value;
+        factualContentStatus.classList.remove('d-none');
+        factualContentResult.innerHTML = '';
+
+        try {
+            const response = await fetch('/api/generate-factual-content', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ topic: topic })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                if (data.status === 'COMPLETE') {
+                    factualContentResult.innerHTML = `
+                        <div class="alert alert-success">
+                            <div class="mb-3">
+                                <h6>Generated Content (${data.word_count} words):</h6>
+                                <div class="generated-content">
+                                    ${data.content}
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <h6>Structure:</h6>
+                                <div class="content-structure">
+                                    ${data.structure}
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <h6>Verification:</h6>
+                                <div class="verification-details">
+                                    <p>Accuracy Score: ${data.verification.score}%</p>
+                                    ${data.verification.improvements ? 
+                                        `<p>Improvements: ${data.verification.improvements}</p>` : ''}
+                                    ${data.verification.citations.length ? `
+                                        <p>Sources:</p>
+                                        <ul>
+                                            ${data.verification.citations.map(cite => 
+                                                `<li>${cite}</li>`).join('')}
+                                        </ul>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="metadata mt-3">
+                                <small>
+                                    Generated at ${new Date(data.metadata.timestamp).toLocaleString()}
+                                </small>
+                            </div>
+                        </div>
+                    `;
+                } else if (data.status === 'FAILED') {
+                    factualContentResult.innerHTML = `
+                        <div class="alert alert-danger">
+                            Error: ${data.error}
+                        </div>
+                    `;
+                }
+            } else {
+                throw new Error(data.error || 'Failed to generate factual content');
+            }
+        } catch (error) {
+            factualContentResult.innerHTML = `
+                <div class="alert alert-danger">
+                    Error: ${error.message}
+                </div>
+            `;
+        } finally {
+            factualContentStatus.classList.add('d-none');
+        }
+    });
 });

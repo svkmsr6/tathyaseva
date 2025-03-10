@@ -16,7 +16,8 @@
 
     <div class="container mt-5">
         <div class="row">
-            <div class="col-md-6">
+            <!-- Fact Checking Section -->
+            <div class="col-md-4">
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="card-title">Fact Checking</h5>
@@ -34,7 +35,8 @@
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <!-- Content Generation Section -->
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="card-title">Content Generation</h5>
@@ -48,6 +50,36 @@
                             <button type="submit" class="btn btn-primary">Generate Content</button>
                         </form>
                         <div id="content-gen-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Factual Content Generation Section -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Factual Content Generation</h5>
+                        <small class="text-muted">Generate verified content within 500 words</small>
+                    </div>
+                    <div class="card-body">
+                        <form id="factual-content-form">
+                            <div class="mb-3">
+                                <label for="factual-topic" class="form-label">Topic</label>
+                                <textarea class="form-control" id="factual-topic" rows="4" required 
+                                    placeholder="Enter a topic for generating factual content..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                Generate Factual Content
+                            </button>
+                        </form>
+                        <div id="factual-content-status" class="mt-3 d-none">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 100%"></div>
+                            </div>
+                            <small class="text-muted">Generating factual content...</small>
+                        </div>
+                        <div id="factual-content-result" class="mt-3"></div>
                     </div>
                 </div>
             </div>

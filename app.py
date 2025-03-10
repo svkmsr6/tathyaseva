@@ -1,7 +1,7 @@
 import os
 import logging
-from flask import Flask, request, jsonify, render_template
-from agents import ResearchCrew
+from flask import Flask, request, jsonify, render_template, make_response
+from agents import ResearchCrew, TaskStatus
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -58,3 +58,29 @@ def generate_content():
     except Exception as e:
         logger.error(f"Error in generate-content endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-factual-content', methods=['POST'])
+def generate_factual_content():
+    """Generate factual, verified content with status tracking."""
+    try:
+        data = request.get_json()
+        if not data or 'topic' not in data:
+            return jsonify({'error': 'No topic provided'}), 400
+
+        topic = data['topic']
+        result = crew.generate_factual_content(topic)
+
+        if result['status'] == TaskStatus.FAILED.value:
+            return jsonify({
+                'status': result['status'],
+                'error': result['error']
+            }), 500
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error in generate-factual-content endpoint: {str(e)}")
+        return jsonify({
+            'status': TaskStatus.FAILED.value,
+            'error': str(e)
+        }), 500
