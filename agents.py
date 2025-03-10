@@ -113,7 +113,7 @@ class ResearchCrew:
             content_crew = Crew(
                 agents=[writer],
                 tasks=[writing_task],
-                verbose=2  # Increased verbosity for debugging
+                verbose=True  # Changed from verbose=2
             )
             content_result = content_crew.kickoff()
 
@@ -140,7 +140,7 @@ class ResearchCrew:
             fact_crew = Crew(
                 agents=[fact_checker],
                 tasks=[fact_check_task],
-                verbose=2  # Increased verbosity for debugging
+                verbose=True  # Changed from verbose=2
             )
             fact_result = fact_crew.kickoff()
 
@@ -200,7 +200,7 @@ class ResearchCrew:
             crew = Crew(
                 agents=[fact_checker],
                 tasks=[fact_check_task],
-                verbose=2  # Increased verbosity for debugging
+                verbose=True  # Changed from verbose=2
             )
             result = crew.kickoff()
 
@@ -238,7 +238,7 @@ class ResearchCrew:
             crew = Crew(
                 agents=[writer],
                 tasks=[writing_task],
-                verbose=2  # Increased verbosity for debugging
+                verbose=True  # Changed from verbose=2
             )
 
             result = crew.kickoff()
