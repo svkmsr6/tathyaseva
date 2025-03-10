@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 factCheckResult.innerHTML = `
                     <div class="alert alert-info">
                         <div class="score-display">
-                            Veracity Score: ${data.veracity_score}%
+                            Veracity Score: ${data.score}%
                         </div>
                         <div class="details">
                             <h6>Details:</h6>
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <div class="mb-3">
                                 <h6>Structure:</h6>
-                                <div class="content-structure">
+                                <div class="content-structure article-content">
                                     ${data.structure}
                                 </div>
                             </div>
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <p>Accuracy Score: ${data.verification.score}%</p>
                                     ${data.verification.improvements ? 
                                         `<p>Improvements: ${data.verification.improvements}</p>` : ''}
-                                    ${data.verification.citations.length ? `
+                                    ${data.verification.citations && data.verification.citations.length ? `
                                         <p>Sources:</p>
                                         <ul>
                                             ${data.verification.citations.map(cite => 
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <small>
                                     Generated at ${new Date(data.metadata.timestamp).toLocaleString()}
                                 </small>
-                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="navigator.clipboard.writeText(${JSON.stringify(data.content_markdown)})">
+                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="navigator.clipboard.writeText('${data.content_markdown.replace(/'/g, "\\'")}')">
                                     Copy Markdown
                                 </button>
                             </div>
