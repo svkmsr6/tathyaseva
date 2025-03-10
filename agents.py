@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 from datetime import datetime
 from enum import Enum
 from crewai import Agent, Task, Crew
@@ -21,6 +22,7 @@ class ResearchCrew:
             raise ValueError("OpenAI API key not found in environment variables")
 
     def create_agent(self, role, goal, backstory):
+        """Create an agent with proper JSON response format configuration."""
         return Agent(
             role=role,
             goal=goal,
@@ -37,106 +39,91 @@ class ResearchCrew:
             }
         )
 
-    def _extract_json(self, text: str) -> dict:
-        """Extract and parse JSON from text with enhanced error handling."""
-        try:
-            logger.debug("=== Raw Response for JSON Extraction ===")
-            logger.debug(f"Response type: {type(text)}")
-            logger.debug(f"Response length: {len(text)}")
-            logger.debug(f"First 100 characters: {repr(text[:100])}")
-            logger.debug(f"Last 100 characters: {repr(text[-100:])}")
-
-            # Initial cleanup
-            text = text.strip()
-
-            # Find JSON boundaries
-            start_idx = text.find('{')
-            end_idx = text.rfind('}')
-
-            if start_idx == -1 or end_idx == -1:
-                logger.error("No JSON object found in response")
-                logger.error(f"Raw response: {repr(text)}")
-                return None
-
-            # Extract JSON and clean it
-            json_str = text[start_idx:end_idx + 1]
-
-            # Clean common issues
-            json_str = json_str.replace('\n', ' ')
-            json_str = json_str.replace('\\n', '\\\\n')
-            json_str = json_str.replace('\"', '"')
-            json_str = json_str.replace('`', '')
-            json_str = json_str.replace('```json', '')
-            json_str = json_str.replace('```', '')
-
-            logger.debug(f"Cleaned JSON string: {repr(json_str)}")
-
+    def extract_json_with_retries(self, text, max_retries=3):
+        """Extract JSON from text with retries and validation."""
+        for attempt in range(max_retries):
             try:
-                parsed_result = json.loads(json_str)
-                logger.debug(f"Successfully parsed JSON: {parsed_result}")
-                return parsed_result
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON parsing error: {str(e)}")
-                logger.error(f"Position: {e.pos}, Line: {e.lineno}, Column: {e.colno}")
-                logger.error(f"Problematic JSON: {repr(json_str)}")
-                return None
+                # Clean the text
+                text = text.strip()
+                if text.startswith('```json'):
+                    text = text[7:]
+                if text.endswith('```'):
+                    text = text[:-3]
 
-        except Exception as e:
-            logger.error(f"JSON extraction error: {str(e)}")
-            logger.error(f"Problematic text: {repr(text)}")
-            return None
+                # Find the outermost JSON object
+                bracket_count = 0
+                start_idx = -1
+                end_idx = -1
+
+                for i, char in enumerate(text):
+                    if char == '{':
+                        if bracket_count == 0:
+                            start_idx = i
+                        bracket_count += 1
+                    elif char == '}':
+                        bracket_count -= 1
+                        if bracket_count == 0:
+                            end_idx = i + 1
+                            break
+
+                if start_idx != -1 and end_idx != -1:
+                    json_str = text[start_idx:end_idx]
+                    # Parse and validate JSON
+                    result = json.loads(json_str)
+                    return result
+
+            except Exception as e:
+                logger.error(f"JSON extraction attempt {attempt + 1} failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                continue
+
+        return None
 
     def generate_factual_content(self, topic: str) -> dict:
-        """Generate factual, verified content with status tracking."""
+        """Generate factual, verified content with enhanced error handling."""
         try:
-            # Create content writer agent
+            # Create writer agent
             writer = self.create_agent(
                 role='Content Writer',
                 goal='Create engaging and factual content within 500 words',
                 backstory='Professional writer specializing in concise, accurate content creation'
             )
 
-            # Initial content generation task
+            # Content generation task with strict JSON format
             writing_task = Task(
                 description=f"""
-                Write a professional, structured article about: {topic}
+                Write a professional article about: {topic}
 
-                STRICT REQUIREMENTS:
-                1. Maximum 500 words
-                2. Include citations or references
-                3. Professional tone
-                4. Clear structure with sections
-                5. Format your response EXACTLY as follows:
+                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
                 {{
                     "content": "your article content here",
                     "structure": "outline of sections",
                     "word_count": number
                 }}
 
-                CRITICAL FORMAT RULES:
-                1. Response must contain ONLY valid JSON
-                2. No markdown formatting (```) or text outside JSON
-                3. Use double quotes for all strings
-                4. Escape special characters properly
-                5. Use '\\n' for line breaks
+                REQUIREMENTS:
+                1. Maximum 500 words
+                2. Professional tone
+                3. Clear structure with sections
+                4. ONLY return the JSON object, nothing else
+                5. Use proper JSON escaping for special characters
                 """,
-                agent=writer,
-                expected_output="Valid JSON object containing structured article"
+                agent=writer
             )
 
             # Execute content generation
-            crew = Crew(
+            content_crew = Crew(
                 agents=[writer],
                 tasks=[writing_task],
                 verbose=True
             )
-            result = crew.kickoff()
-            logger.debug(f"Raw content generation result: {result}")
+            content_result = content_crew.kickoff()
 
-            # Parse content generation result
-            content_json = self._extract_json(str(writing_task.output))
+            # Extract and validate content JSON
+            content_json = self.extract_json_with_retries(str(content_result))
             if not content_json:
-                raise ValueError("Failed to parse content generation output")
+                raise ValueError("Failed to generate valid content")
 
             # Create fact checker agent
             fact_checker = self.create_agent(
@@ -145,46 +132,42 @@ class ResearchCrew:
                 backstory='Expert fact checker with extensive verification experience'
             )
 
-            # Create fact checking task
+            # Fact checking task
             fact_check_task = Task(
                 description=f"""
-                Verify the accuracy of this content:
+                Verify this content:
 
                 {content_json.get('content', '')}
 
-                Format your response EXACTLY as follows:
+                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
                 {{
                     "score": number between 0 and 100,
-                    "improvements": "suggested improvements if any",
+                    "improvements": "suggested improvements",
                     "citations": ["list of verified sources"]
                 }}
 
-                CRITICAL FORMAT RULES:
-                1. Response must contain ONLY valid JSON
-                2. No markdown formatting (```) or text outside JSON
-                3. Use double quotes for all strings
-                4. Escape special characters properly
-                5. Use '\\n' for line breaks
+                REQUIREMENTS:
+                1. ONLY return the JSON object, nothing else
+                2. Use proper JSON escaping for special characters
+                3. Include at least 2 citations
                 """,
-                agent=fact_checker,
-                expected_output="Valid JSON object with verification results"
+                agent=fact_checker
             )
 
             # Execute fact checking
-            crew = Crew(
+            fact_crew = Crew(
                 agents=[fact_checker],
                 tasks=[fact_check_task],
                 verbose=True
             )
-            result = crew.kickoff()
-            logger.debug(f"Raw fact checking result: {result}")
+            fact_result = fact_crew.kickoff()
 
-            # Parse fact checking result
-            verification_json = self._extract_json(str(fact_check_task.output))
+            # Extract and validate verification JSON
+            verification_json = self.extract_json_with_retries(str(fact_result))
             if not verification_json:
-                raise ValueError("Failed to parse verification output")
+                raise ValueError("Failed to generate valid verification")
 
-            # Combine and validate results
+            # Return combined results
             return {
                 "status": TaskStatus.COMPLETE.value,
                 "content": content_json["content"],
@@ -213,98 +196,56 @@ class ResearchCrew:
             }
 
     def run_fact_check(self, content: str) -> dict:
-        """Run the fact checking process using a single agent approach."""
+        """Run fact checking with enhanced error handling."""
         try:
-            # Create a single fact-checking agent for simplicity
             fact_checker = self.create_agent(
                 role='Fact Checker',
-                goal='Verify the accuracy of information and provide a detailed assessment',
-                backstory='Expert fact checker with extensive experience in information verification'
+                goal='Verify the accuracy of information',
+                backstory='Expert fact checker with extensive verification experience'
             )
 
-            # Create a single task for fact checking
             fact_check_task = Task(
                 description=f"""
-                Carefully fact-check the following content:
+                Verify this content:
 
                 {content}
 
-                Format your response as a valid JSON object with this exact structure:
+                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
                 {{
                     "score": number between 0 and 100,
-                    "details": "detailed explanation of the findings"
+                    "details": "detailed explanation"
                 }}
 
-                STRICT REQUIREMENTS:
-                1. Response must be ONLY the JSON object
-                2. No text before or after the JSON
-                3. Use double quotes for strings
-                4. Properly escape special characters
+                REQUIREMENTS:
+                1. ONLY return the JSON object, nothing else
+                2. Use proper JSON escaping for special characters
                 """,
-                agent=fact_checker,
-                expected_output="Valid JSON string containing score and details"
+                agent=fact_checker
             )
 
-            # Set up the crew with just one agent
             crew = Crew(
                 agents=[fact_checker],
                 tasks=[fact_check_task],
                 verbose=True
             )
-
-            # Execute the task
             result = crew.kickoff()
-            result_str = str(result).strip()
 
-            # Super detailed logging
-            logger.debug("=== Raw Fact Check Response ===")
-            logger.debug(f"Response type: {type(result_str)}")
-            logger.debug(f"Response length: {len(result_str)}")
-            logger.debug(f"First 100 characters: {repr(result_str[:100])}")
-            logger.debug(f"Last 100 characters: {repr(result_str[-100:])}")
+            # Extract and validate JSON
+            parsed_result = self.extract_json_with_retries(str(result))
+            if not parsed_result:
+                raise ValueError("Failed to generate valid fact check result")
 
-            # Simple JSON extraction - exactly like content generation
-            start_idx = result_str.find('{')
-            end_idx = result_str.rfind('}')
-
-            logger.debug(f"JSON start index: {start_idx}")
-            logger.debug(f"JSON end index: {end_idx}")
-
-            if start_idx == -1 or end_idx == -1:
-                logger.error("No JSON object found in response")
-                logger.error(f"Raw response: {repr(result_str)}")
-                return {"score": 0, "details": "Error: Could not extract JSON from response"}
-
-            # Extract the JSON string
-            json_str = result_str[start_idx:end_idx + 1]
-            logger.debug(f"Extracted JSON string: {repr(json_str)}")
-
-            try:
-                # Parse the JSON
-                parsed_result = json.loads(json_str)
-                logger.debug(f"Successfully parsed JSON: {parsed_result}")
-
-                # Validate and format the result
-                if "score" not in parsed_result or "details" not in parsed_result:
-                    raise ValueError("Missing required fields in response")
-
-                score = float(parsed_result["score"])
-                score = max(0, min(100, score))  # Ensure score is between 0 and 100
-
-                return {
-                    "score": score,
-                    "details": f"Veracity Score: {score} - {parsed_result['details']}"
-                }
-
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON parsing error: {str(e)}")
-                logger.error(f"Position: {e.pos}, Line: {e.lineno}, Column: {e.colno}")
-                logger.error(f"Problematic JSON: {repr(json_str)}")
-                return {"score": 0, "details": f"Error: JSON parsing failed - {str(e)}"}
+            return {
+                "score": float(parsed_result["score"]),
+                "details": parsed_result["details"]
+            }
 
         except Exception as e:
             logger.error(f"Fact check error: {str(e)}")
-            return {"score": 0, "details": f"Error during fact check: {str(e)}"}
+            return {
+                "score": 0,
+                "details": f"Error during fact check: {str(e)}"
+            }
 
     def generate_content(self, topic: str) -> dict:
         try:
@@ -318,16 +259,14 @@ class ResearchCrew:
                 description=f"""
                 Write an engaging article about: {topic}
 
-                Format your response as a valid JSON object with this exact structure:
+                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
                 {{
                     "content": "your article content here"
                 }}
 
-                STRICT REQUIREMENTS:
-                1. Response must be ONLY the JSON object
-                2. No text before or after the JSON
-                3. Use double quotes for strings
-                4. Properly escape special characters
+                REQUIREMENTS:
+                1. ONLY return the JSON object, nothing else
+                2. Use proper JSON escaping for special characters
                 """,
                 agent=writer,
                 expected_output="Valid JSON string containing article"
@@ -345,14 +284,10 @@ class ResearchCrew:
             logger.debug(result_str)
 
             # Extract and parse JSON
-            start_idx = result_str.find('{')
-            end_idx = result_str.rfind('}')
+            parsed_result = self.extract_json_with_retries(result_str)
 
-            if start_idx == -1 or end_idx == -1:
-                raise ValueError("No JSON object found in response")
-
-            json_str = result_str[start_idx:end_idx + 1]
-            parsed_result = json.loads(json_str)
+            if not parsed_result:
+                raise ValueError("Failed to extract JSON from content generation result")
 
             if "content" not in parsed_result:
                 raise ValueError("Missing 'content' field in response")
