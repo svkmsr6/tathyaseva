@@ -109,7 +109,8 @@ class ResearchCrew:
                 4. ONLY return the JSON object, nothing else
                 5. Use proper JSON escaping for special characters
                 """,
-                agent=writer
+                agent=writer,
+                expected_output="Valid JSON object containing article content, structure, and word count"
             )
 
             # Execute content generation
@@ -151,7 +152,8 @@ class ResearchCrew:
                 2. Use proper JSON escaping for special characters
                 3. Include at least 2 citations
                 """,
-                agent=fact_checker
+                agent=fact_checker,
+                expected_output="Valid JSON object containing verification score, improvements, and citations"
             )
 
             # Execute fact checking
@@ -220,7 +222,8 @@ class ResearchCrew:
                 1. ONLY return the JSON object, nothing else
                 2. Use proper JSON escaping for special characters
                 """,
-                agent=fact_checker
+                agent=fact_checker,
+                expected_output="Valid JSON object containing verification score and detailed explanation"
             )
 
             crew = Crew(
