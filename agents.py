@@ -28,7 +28,13 @@ class ResearchCrew:
             allow_delegation=True,
             verbose=True,
             api_key=self.api_key,
-            model="gpt-4o"  # Using GPT-4o for all tasks
+            llm_config={
+                "config_list": [{
+                    "model": "gpt-4o",
+                    "api_key": self.api_key,
+                    "response_format": {"type": "json_object"}
+                }]
+            }
         )
 
     def _extract_json(self, text: str) -> dict:
@@ -40,28 +46,28 @@ class ResearchCrew:
             logger.debug(f"First 100 characters: {repr(text[:100])}")
             logger.debug(f"Last 100 characters: {repr(text[-100:])}")
 
-            # Cleanup text
+            # Initial cleanup
             text = text.strip()
 
-            # Find JSON boundaries with better handling
+            # Find JSON boundaries
             start_idx = text.find('{')
             end_idx = text.rfind('}')
-
-            logger.debug(f"JSON start index: {start_idx}")
-            logger.debug(f"JSON end index: {end_idx}")
 
             if start_idx == -1 or end_idx == -1:
                 logger.error("No JSON object found in response")
                 logger.error(f"Raw response: {repr(text)}")
                 return None
 
-            # Extract the JSON string and clean it up
+            # Extract JSON and clean it
             json_str = text[start_idx:end_idx + 1]
 
-            # Handle common formatting issues
-            json_str = json_str.replace('\n', ' ')  # Replace newlines with spaces
-            json_str = json_str.replace('\\n', '\\\\n')  # Escape \n properly
-            json_str = json_str.replace('\"', '"')  # Fix quote escaping
+            # Clean common issues
+            json_str = json_str.replace('\n', ' ')
+            json_str = json_str.replace('\\n', '\\\\n')
+            json_str = json_str.replace('\"', '"')
+            json_str = json_str.replace('`', '')
+            json_str = json_str.replace('```json', '')
+            json_str = json_str.replace('```', '')
 
             logger.debug(f"Cleaned JSON string: {repr(json_str)}")
 
@@ -90,13 +96,6 @@ class ResearchCrew:
                 backstory='Professional writer specializing in concise, accurate content creation'
             )
 
-            # Create fact checker agent
-            fact_checker = self.create_agent(
-                role='Fact Checker',
-                goal='Verify content accuracy and suggest improvements',
-                backstory='Expert fact checker with extensive verification experience'
-            )
-
             # Initial content generation task
             writing_task = Task(
                 description=f"""
@@ -107,25 +106,25 @@ class ResearchCrew:
                 2. Include citations or references
                 3. Professional tone
                 4. Clear structure with sections
-                5. Format your response as a valid JSON object with this exact structure:
+                5. Format your response EXACTLY as follows:
                 {{
                     "content": "your article content here",
                     "structure": "outline of sections",
                     "word_count": number
                 }}
 
-                IMPORTANT JSON RULES:
-                1. Response must be ONLY the JSON object, no additional text
-                2. No text before or after the JSON
-                3. Use double quotes for strings
-                4. Properly escape special characters
-                5. Don't include any line breaks in content, use '\\n' instead
+                CRITICAL FORMAT RULES:
+                1. Response must contain ONLY valid JSON
+                2. No markdown formatting (```) or text outside JSON
+                3. Use double quotes for all strings
+                4. Escape special characters properly
+                5. Use '\\n' for line breaks
                 """,
                 agent=writer,
-                expected_output="Valid JSON string containing structured article"
+                expected_output="Valid JSON object containing structured article"
             )
 
-            # Execute initial content generation
+            # Execute content generation
             crew = Crew(
                 agents=[writer],
                 tasks=[writing_task],
@@ -134,34 +133,41 @@ class ResearchCrew:
             result = crew.kickoff()
             logger.debug(f"Raw content generation result: {result}")
 
-            # Extract and validate content JSON
+            # Parse content generation result
             content_json = self._extract_json(str(writing_task.output))
             if not content_json:
                 raise ValueError("Failed to parse content generation output")
 
-            # Create fact checking task with the generated content
+            # Create fact checker agent
+            fact_checker = self.create_agent(
+                role='Fact Checker',
+                goal='Verify content accuracy and suggest improvements',
+                backstory='Expert fact checker with extensive verification experience'
+            )
+
+            # Create fact checking task
             fact_check_task = Task(
                 description=f"""
                 Verify the accuracy of this content:
 
                 {content_json.get('content', '')}
 
-                Format your response as a valid JSON object with this exact structure:
+                Format your response EXACTLY as follows:
                 {{
                     "score": number between 0 and 100,
                     "improvements": "suggested improvements if any",
                     "citations": ["list of verified sources"]
                 }}
 
-                IMPORTANT JSON RULES:
-                1. Response must be ONLY the JSON object, no additional text
-                2. No text before or after the JSON
-                3. Use double quotes for strings
-                4. Properly escape special characters
-                5. Don't include any line breaks in improvements, use '\\n' instead
+                CRITICAL FORMAT RULES:
+                1. Response must contain ONLY valid JSON
+                2. No markdown formatting (```) or text outside JSON
+                3. Use double quotes for all strings
+                4. Escape special characters properly
+                5. Use '\\n' for line breaks
                 """,
                 agent=fact_checker,
-                expected_output="Valid JSON string with verification results"
+                expected_output="Valid JSON object with verification results"
             )
 
             # Execute fact checking
@@ -173,12 +179,12 @@ class ResearchCrew:
             result = crew.kickoff()
             logger.debug(f"Raw fact checking result: {result}")
 
-            # Extract and validate verification JSON
+            # Parse fact checking result
             verification_json = self._extract_json(str(fact_check_task.output))
             if not verification_json:
                 raise ValueError("Failed to parse verification output")
 
-            # Combine results
+            # Combine and validate results
             return {
                 "status": TaskStatus.COMPLETE.value,
                 "content": content_json["content"],
