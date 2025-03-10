@@ -78,6 +78,8 @@ class ResearchCrew:
 
                 if start_idx != -1 and end_idx != -1:
                     json_str = text[start_idx:end_idx]
+                    # Clean up the JSON string
+                    json_str = json_str.replace('\n', ' ').strip()
                     # Parse and validate JSON
                     result = json.loads(json_str)
                     return result
@@ -102,29 +104,7 @@ class ResearchCrew:
 
             # Content generation task with strict JSON format
             writing_task = Task(
-                description=f"""
-                Write a professional article about: {topic}
-
-                Write the content in Markdown format with:
-                - Headers (# for main title, ## for sections)
-                - Lists (- or 1. for items)
-                - Bold (**) and italic (*) text
-                - Links when relevant
-
-                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
-                {{
-                    "content": "your markdown-formatted article here",
-                    "structure": "outline of sections",
-                    "word_count": number
-                }}
-
-                REQUIREMENTS:
-                1. Maximum 500 words
-                2. Professional tone
-                3. Clear structure with sections
-                4. ONLY return the JSON object, nothing else
-                5. Use proper JSON escaping for special characters
-                """,
+                description=f"Write a well-structured article about: {topic}. Output format: {{\"content\": \"markdown article here\", \"structure\": \"outline\", \"word_count\": number}}",
                 agent=writer,
                 expected_output="Valid JSON object containing article content, structure, and word count"
             )
@@ -133,7 +113,7 @@ class ResearchCrew:
             content_crew = Crew(
                 agents=[writer],
                 tasks=[writing_task],
-                verbose=True
+                verbose=2  # Increased verbosity for debugging
             )
             content_result = content_crew.kickoff()
 
@@ -151,23 +131,7 @@ class ResearchCrew:
 
             # Fact checking task
             fact_check_task = Task(
-                description=f"""
-                Verify this content:
-
-                {content_json.get('content', '')}
-
-                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
-                {{
-                    "score": number between 0 and 100,
-                    "improvements": "suggested improvements",
-                    "citations": ["list of verified sources"]
-                }}
-
-                REQUIREMENTS:
-                1. ONLY return the JSON object, nothing else
-                2. Use proper JSON escaping for special characters
-                3. Include at least 2 citations
-                """,
+                description=f"Verify this content: {content_json.get('content', '')}. Output format: {{\"score\": number, \"improvements\": \"text\", \"citations\": [\"sources\"]}}",
                 agent=fact_checker,
                 expected_output="Valid JSON object containing verification score, improvements, and citations"
             )
@@ -176,7 +140,7 @@ class ResearchCrew:
             fact_crew = Crew(
                 agents=[fact_checker],
                 tasks=[fact_check_task],
-                verbose=True
+                verbose=2  # Increased verbosity for debugging
             )
             fact_result = fact_crew.kickoff()
 
@@ -193,7 +157,7 @@ class ResearchCrew:
             return {
                 "status": TaskStatus.COMPLETE.value,
                 "content": html_content,
-                "content_markdown": content_json["content"],  # Keep original markdown
+                "content_markdown": content_json["content"],
                 "structure": html_structure,
                 "word_count": content_json.get("word_count", 0),
                 "verification": {
@@ -228,21 +192,7 @@ class ResearchCrew:
             )
 
             fact_check_task = Task(
-                description=f"""
-                Verify this content:
-
-                {content}
-
-                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
-                {{
-                    "score": number between 0 and 100,
-                    "details": "detailed explanation"
-                }}
-
-                REQUIREMENTS:
-                1. ONLY return the JSON object, nothing else
-                2. Use proper JSON escaping for special characters
-                """,
+                description=f"Verify this content: {content}. Output format: {{\"score\": number, \"details\": \"explanation\"}}",
                 agent=fact_checker,
                 expected_output="Valid JSON object containing verification score and detailed explanation"
             )
@@ -250,7 +200,7 @@ class ResearchCrew:
             crew = Crew(
                 agents=[fact_checker],
                 tasks=[fact_check_task],
-                verbose=True
+                verbose=2  # Increased verbosity for debugging
             )
             result = crew.kickoff()
 
@@ -280,18 +230,7 @@ class ResearchCrew:
             )
 
             writing_task = Task(
-                description=f"""
-                Write an engaging article about: {topic}
-
-                YOUR RESPONSE MUST BE A VALID JSON OBJECT:
-                {{
-                    "content": "your article content here"
-                }}
-
-                REQUIREMENTS:
-                1. ONLY return the JSON object, nothing else
-                2. Use proper JSON escaping for special characters
-                """,
+                description=f"Write an article about: {topic}. Output format: {{\"content\": \"article here\"}}",
                 agent=writer,
                 expected_output="Valid JSON string containing article"
             )
@@ -299,7 +238,7 @@ class ResearchCrew:
             crew = Crew(
                 agents=[writer],
                 tasks=[writing_task],
-                verbose=True
+                verbose=2  # Increased verbosity for debugging
             )
 
             result = crew.kickoff()
