@@ -3,11 +3,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const contentGenForm = document.getElementById('content-gen-form');
     const factCheckResult = document.getElementById('fact-check-result');
     const contentGenResult = document.getElementById('content-gen-result');
+    const factCheckStatus = document.getElementById('fact-check-status');
+    const contentGenStatus = document.getElementById('content-gen-status');
 
     factCheckForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        factCheckResult.innerHTML = '<div class="loading">Processing...</div>';
+        factCheckStatus.classList.remove('d-none');
+        factCheckResult.innerHTML = '';
 
         const content = document.getElementById('content').value;
 
@@ -45,13 +48,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     Error: ${error.message}
                 </div>
             `;
+        } finally {
+            factCheckStatus.classList.add('d-none');
         }
     });
 
     contentGenForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        contentGenResult.innerHTML = '<div class="loading">Generating content...</div>';
+        contentGenStatus.classList.remove('d-none');
+        contentGenResult.innerHTML = '';
 
         const topic = document.getElementById('topic').value;
 
@@ -91,6 +97,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     Error: ${error.message}
                 </div>
             `;
+        } finally {
+            contentGenStatus.classList.add('d-none');
         }
     });
 
